@@ -1,5 +1,7 @@
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.util.ArrayList;
 
 public class GameOfLife {
@@ -15,9 +17,11 @@ public class GameOfLife {
         initMouse();
         while (true) {
             long time = System.currentTimeMillis();
-            if (time - prevFrame > 10) {
+            if (time - prevFrame > 25) {
                 prevFrame = time;
                 window.repaint();
+                if (mouseKeys[0]) window.mainView.drawPixel();
+                if (mouseKeys[1]) window.mainView.moveView();
             }
         }
     }
@@ -26,36 +30,38 @@ public class GameOfLife {
         window.addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                System.out.println("Clicked");
 
             }
 
             @Override
             public void mousePressed(MouseEvent e) {
-                System.out.println("Pressed");
-                System.out.println(e.getX() + ":" + e.getY() + ":" + e.getXOnScreen() + ":" + e.getYOnScreen() + "  " + e.getButton());
                 if (e.getButton() == 1) mouseKeys[0] = true;
                 if (e.getButton() == 3) mouseKeys[1] = true;
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                System.out.println("Released");
                 if (e.getButton() == 1) mouseKeys[0] = false;
                 if (e.getButton() == 3) mouseKeys[1] = false;
+                if (e.getButton() == 1) window.mainView.prevPos.setLocation(-1, -1);
+                if (e.getButton() == 3) window.mainView.prevViewPos.setLocation(-1, -1);
 
             }
 
             @Override
             public void mouseEntered(MouseEvent e) {
-                System.out.println("Entered");
-
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                System.out.println("Exited");
-
+                mouseKeys[0] = false;
+                mouseKeys[1] = false;
+            }
+        });
+        window.addMouseWheelListener(new MouseWheelListener() {
+            @Override
+            public void mouseWheelMoved(MouseWheelEvent e) {
+                window.mainView.changeScale(e.getWheelRotation());
             }
         });
     }
