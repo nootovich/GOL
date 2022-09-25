@@ -1,62 +1,38 @@
-import java.awt.*;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 
-// GLOBAL TODO: Add instructions for keybinds
-
 public class GameOfLife {
-    public static int /* SETTINGS ------------------------- */ // TODO: Put here most important variables and remove other stuff
-            windowWidth = 960, windowHeight = 640, cellsWidth = 96, cellsHeight = 64, FPS = 100;
-    public static double prevFrame = 0;
-    public static long prevSimStep = 0;
-    public static double frameTime = 1000d / FPS;
+    public static int // ##### SETTINGS ##### //
+            windowWidth = 960, windowHeight = 640, cellsWidth = 500, cellsHeight = 300, FPS = 100;
     public static boolean[][] cells = new boolean[cellsHeight][cellsWidth];
-    public static int frameSamples = 40, simulationStepsPerSecond = 10, curCellDrawType = -1;
-    public static double simulationStepTime = 1000d / simulationStepsPerSecond;
-    public static boolean[] mouseKeys = new boolean[]{false, false};
-    public static boolean paused = true;
+    public static boolean[] keys = new boolean[4], mouseKeys = new boolean[2];
+    public static boolean paused = true, needToChangeSize;
+    public static int frameSamples = 40, simulationStepsPerSecond = 10;
+    public static long prevFrame = 0, prevSimStep = 0, frameTime = 1_000_000_000 / FPS, simulationStepTime = 1_000_000_000 / simulationStepsPerSecond;
     public static Window window = new Window(windowWidth, windowHeight);
-    public static ArrayList<Integer> timings = new ArrayList<>();
-
-    public static long prevMil = 0, prevNano = 0;
+    public static ArrayList<Long> timings = new ArrayList<>();
 
     public static void main(String[] args) {
-        initMouse();
-        initKeyboard();
         while (true) {
-            long time = System.currentTimeMillis();
-            double frameDiff = 0;
-            if (prevFrame > 0) frameDiff = time - prevFrame - frameTime;
+            long time = System.nanoTime();
+            long frameDiff = 0;
+            if (prevFrame > 1) frameDiff = time - prevFrame - frameTime;
             if (frameDiff >= 0) {
-                if (prevFrame > 0) timings.add((int) frameDiff);
+                if (prevFrame > 0) timings.add(time - prevFrame);
                 if (timings.size() > frameSamples) timings.remove(0);
-
                 prevFrame = time - (frameDiff - frameTime);
-
-                long temp = 0;
-                if (prevSimStep > 1) temp = (long) (time - prevSimStep - simulationStepTime);
-                if (temp >= 0 && !paused) {
-
-//                    long curMil = System.currentTimeMillis();
-//                    long curNano = System.nanoTime();
-//                    System.out.println((prevMil-curMil)+"\n"+(prevNano-curNano));
-//                    prevMil = curMil;
-//                    prevNano = curNano; // TODO: fix framerate and simulation timing by using more precise timings
-
-                    while (temp >= 0) {
+                simulationStepTime = 1_000_000_000 / simulationStepsPerSecond;
+                long timeDiff = 0;
+                if (prevSimStep > 1) timeDiff = time - prevSimStep - simulationStepTime;
+                if (!paused && timeDiff >= 0) {
+                    while (timeDiff >= 0 && !(timeDiff > simulationStepTime * 100)) {
                         prevSimStep += simulationStepTime;
-                        temp -= simulationStepTime;
+                        timeDiff -= simulationStepTime;
                         simulate();
                     }
                     prevSimStep = time;
                 }
-                if (mouseKeys[0]) window.mainView.addCell();
-                if (mouseKeys[1]) window.mainView.moveView();
                 window.repaint();
+                if (needToChangeSize) changeCellsSize();
             }
         }
     }
@@ -71,10 +47,21 @@ public class GameOfLife {
         }
     }
 
-    public static int sum(ArrayList<Integer> timings) {
-        int result = 0;
-        for (Integer i : timings) result += i;
-        return result > 0 ? result : 1;
+    public static void changeSimStepTime(boolean direction) {
+        if (direction) {
+            if (simulationStepsPerSecond < 10) simulationStepsPerSecond++;
+            simulationStepsPerSecond *= 1.2d;
+        } else {
+            simulationStepsPerSecond *= 0.9d;
+        }
+        if (simulationStepsPerSecond < 1) simulationStepsPerSecond = 1;
+        if (simulationStepsPerSecond > 1000) simulationStepsPerSecond = 1000;
+        Window.ControlPanel.Simspeed.updatePos();
+    }
+
+    public static void changeCellsSize() {
+        cells = new boolean[cellsHeight][cellsWidth];
+        needToChangeSize = false;
     }
 
     public static void simulate() {
@@ -102,97 +89,5 @@ public class GameOfLife {
             }
         }
         cells = next;
-    }
-
-    public static BufferedImage drawCells() {
-        int h = cells.length, w = cells[0].length;
-        BufferedImage result = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D temp = result.createGraphics();
-        temp.setColor(paused ? new Color(42, 42, 47) : Color.DARK_GRAY);
-        temp.fillRect(0, 0, w, h);
-        for (int i = 0; i < h; i++) {
-            for (int j = 0; j < w; j++) {
-                if (cells[i][j]) result.setRGB(j, i, Color.WHITE.getRGB());
-            }
-        }
-        return result;
-    }
-
-    private static void initMouse() {
-        window.addMouseListener(new MouseListener() {
-            @Override
-            public void mouseClicked(MouseEvent e) {
-
-            }
-
-            @Override
-            public void mousePressed(MouseEvent e) {
-                if (e.getButton() == 1) mouseKeys[0] = true;
-                if (e.getButton() == 3) mouseKeys[1] = true;
-            }
-
-            @Override
-            public void mouseReleased(MouseEvent e) {
-                if (e.getButton() == 1) {
-                    mouseKeys[0] = false;
-                    curCellDrawType = -1;
-                }
-                if (e.getButton() == 3) {
-                    mouseKeys[1] = false;
-                    window.mainView.setPrevViewPos(-1, -1);
-                }
-
-            }
-
-            @Override
-            public void mouseEntered(MouseEvent e) {
-            }
-
-            @Override
-            public void mouseExited(MouseEvent e) {
-                mouseKeys[0] = false;
-                mouseKeys[1] = false;
-            }
-        });
-        window.addMouseWheelListener(e -> window.mainView.changeScale(-e.getWheelRotation()));
-//        window.addMouseWheelListener(new MouseWheelListener() {
-//            @Override
-//            public void mouseWheelMoved(MouseWheelEvent e) {
-//                window.mainView.changeScale(-e.getWheelRotation());
-//            }
-//        });
-    }
-
-    private static void initKeyboard() {
-        window.addKeyListener(new KeyListener() {
-            @Override
-            public void keyTyped(KeyEvent e) {
-            }
-
-            @Override
-            public void keyPressed(KeyEvent e) {
-                switch (e.getKeyChar()) {
-                    case '=' -> window.mainView.changeScale(1);
-                    case '-' -> window.mainView.changeScale(-1);
-                    case ' ' -> paused = !paused;
-//                    case '[' ->  // TODO: same as slider; change to num of steps (and add this at all)
-//                        window.mainView.panel.Simspeed.changePos(-10);
-//                    case ']' -> window.mainView.panel.Simspeed.changePos(10);
-                    case '\n' -> simulate();
-                    case 'q' -> System.exit(1);
-                    case 'r' -> randomFill();
-                }
-            }
-
-            @Override
-            public void keyReleased(KeyEvent e) {
-
-            }
-        });
-    }
-
-    public static double map(double val, double in_low, double in_high, double out_low, double out_high) {
-        double slope = (out_high - out_low) / (in_high - in_low);
-        return (out_low + slope * (val - in_low));
     }
 }
